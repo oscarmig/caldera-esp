@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Caldera ESP Pro</title>
+
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<style>
+body {
+    font-family: Arial;
+    text-align: center;
+    background: #f2f2f2;
+}
+
+.caja {
+    background: white;
+    padding: 15px;
+    margin: 10px;
+    border-radius: 10px;
+}
+
+h1 {
+    margin-bottom: 5px;
+}
+
+.estado {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+button {
+    font-size: 22px;
+    padding: 15px 30px;
+    margin: 5px;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>🔥 CALDERA ESP PRO</h1>
+<h2>Panel de control</h2>
+
+<div class="caja">
+
+<h2>📡 MQTT</h2>
+
+<p id="mqttEstado" class="estado">
+CONECTANDO...
+</p>
+
+</div>
+
+
+<div class="caja">
+
+<h2>📨 Estado del ESP</h2>
+
+<p id="estadoESP">
+--
+</p>
+
+</div>
+
+
+<div class="caja">
+
+<h2>💡 LED</h2>
+
+<button onclick="encender()">ON</button>
+
+<button onclick="apagar()">OFF</button>
+
+<p id="ledEstado">
+--
+</p>
+
+</div>
+
+
+<script>
+
+const host = "wss://b006397215434ca192ccab8d5f534293.s1.eu.hivemq.cloud:8884/mqtt";
+
+const usuario = "caldera2026";
+
+const contraseña = "17681768";
+
+
+const cliente = mqtt.connect(host, {
+
+    username: usuario,
+
+    password: contraseña,
+
+    clientId: "PaginaCaldera_" + Math.random().toString(16).substr(2, 8)
+
+});
+
+
+cliente.on("connect", function() {
+
+    document.getElementById("mqttEstado").innerHTML =
+        "<span style='color:green;'>CONECTADO</span>";
+
+    cliente.subscribe("caldera/estado");
+
+});
+
+
+cliente.on("message", function(topic, message) {
+
+    const mensaje = message.toString();
+
+    if (topic === "caldera/estado") {
+
+        document.getElementById("estadoESP").innerHTML =
+            mensaje;
+
+    }
+
+});
+
+
+cliente.on("error", function(error) {
+
+    document.getElementById("mqttEstado").innerHTML =
+        "<span style='color:red;'>ERROR MQTT</span>";
+
+    console.log(error);
+
+});
+
+
+function encender() {
+
+    cliente.publish("caldera/rele", "on");
+
+    document.getElementById("ledEstado").innerHTML =
+        "<span style='color:green;'>ON - RÁPIDO</span>";
+
+}
+
+
+function apagar() {
+
+    cliente.publish("caldera/rele", "off");
+
+    document.getElementById("ledEstado").innerHTML =
+        "<span style='color:gray;'>OFF - NORMAL</span>";
+
+}
+
+</script>
+
+</body>
+</html>
