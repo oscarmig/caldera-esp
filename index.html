@@ -42,6 +42,12 @@ h1 {
     margin: 20px;
 }
 
+.alerta {
+    font-size: 22px;
+    font-weight: bold;
+    margin: 15px;
+}
+
 </style>
 
 </head>
@@ -81,6 +87,10 @@ CONECTANDO...
 
 <p id="temperatura" class="temperatura">
 -- °C
+</p>
+
+<p id="alertaTemperatura" class="alerta">
+Esperando temperatura...
 </p>
 
 </div>
@@ -123,14 +133,52 @@ cliente.on("message", function(topic, message) {
 
     if (topic === "caldera/estado") {
 
-        document.getElementById("estadoESP").innerHTML = mensaje;
+        document.getElementById("estadoESP").innerHTML =
+            mensaje;
 
     }
 
+
     if (topic === "caldera/temperatura") {
 
+        const temperatura = parseFloat(mensaje);
+
         document.getElementById("temperatura").innerHTML =
-            mensaje + " °C";
+            temperatura + " °C";
+
+
+        const alerta =
+            document.getElementById("alertaTemperatura");
+
+
+        if (temperatura < 50) {
+
+            alerta.innerHTML =
+                "🟠 TEMPERATURA BAJA";
+
+            alerta.style.color = "orange";
+
+        }
+
+
+        else if (temperatura > 60) {
+
+            alerta.innerHTML =
+                "🔴 TEMPERATURA ALTA";
+
+            alerta.style.color = "red";
+
+        }
+
+
+        else {
+
+            alerta.innerHTML =
+                "🟢 TEMPERATURA NORMAL";
+
+            alerta.style.color = "green";
+
+        }
 
     }
 
