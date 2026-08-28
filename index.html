@@ -2,16 +2,15 @@ clientId: "PaginaCaldera_" + Math.random().toString(16).substr(2, 8)
 
 });
 
-
 cliente.on("connect", function() {
 
     document.getElementById("mqttEstado").innerHTML =
         "<span style='color:green;'>CONECTADO</span>";
 
     cliente.subscribe("caldera/estado");
+    cliente.subscribe("caldera/temperatura");
 
 });
-
 
 cliente.on("message", function(topic, message) {
 
@@ -24,8 +23,14 @@ cliente.on("message", function(topic, message) {
 
     }
 
-});
+    if (topic === "caldera/temperatura") {
 
+        document.getElementById("temperatura").innerHTML =
+            mensaje + " °C";
+
+    }
+
+});
 
 cliente.on("error", function(error) {
 
@@ -35,26 +40,6 @@ cliente.on("error", function(error) {
     console.log(error);
 
 });
-
-
-function encender() {
-
-    cliente.publish("caldera/rele", "on");
-
-    document.getElementById("ledEstado").innerHTML =
-        "<span style='color:green;'>ON - RÁPIDO</span>";
-
-}
-
-
-function apagar() {
-
-    cliente.publish("caldera/rele", "off");
-
-    document.getElementById("ledEstado").innerHTML =
-        "<span style='color:gray;'>OFF - NORMAL</span>";
-
-}
 
 </script>
 
