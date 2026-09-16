@@ -59,6 +59,8 @@ h1 {
 <h2>Panel de monitoreo</h2>
 
 
+<!-- MQTT -->
+
 <div class="caja">
 
 <h2>📡 MQTT</h2>
@@ -70,6 +72,8 @@ CONECTANDO...
 </div>
 
 
+<!-- ESTADO ESP -->
+
 <div class="caja">
 
 <h2>📨 Estado del ESP</h2>
@@ -80,6 +84,8 @@ CONECTANDO...
 
 </div>
 
+
+<!-- TEMPERATURA -->
 
 <div class="caja">
 
@@ -98,7 +104,12 @@ Esperando temperatura...
 
 <script>
 
-const host = "wss://b006397215434ca192ccab8d5f534293.s1.eu.hivemq.cloud:8884/mqtt";
+//==============================
+// CONEXIÓN MQTT
+//==============================
+
+const host =
+"wss://b006397215434ca192ccab8d5f534293.s1.eu.hivemq.cloud:8884/mqtt";
 
 const usuario = "caldera2026";
 
@@ -110,10 +121,16 @@ const cliente = mqtt.connect(host, {
 
     password: contraseña,
 
-    clientId: "PaginaCaldera_" + Math.random().toString(16).substr(2, 8)
+    clientId:
+        "PaginaCaldera_" +
+        Math.random().toString(16).substr(2, 8)
 
 });
 
+
+//==============================
+// MQTT CONECTADO
+//==============================
 
 cliente.on("connect", function() {
 
@@ -127,9 +144,18 @@ cliente.on("connect", function() {
 });
 
 
+//==============================
+// MENSAJES MQTT
+//==============================
+
 cliente.on("message", function(topic, message) {
 
     const mensaje = message.toString();
+
+
+    //==========================
+    // ESTADO DEL ESP
+    //==========================
 
     if (topic === "caldera/estado") {
 
@@ -139,44 +165,67 @@ cliente.on("message", function(topic, message) {
     }
 
 
+    //==========================
+    // TEMPERATURA
+    //==========================
+
     if (topic === "caldera/temperatura") {
 
-        const temperatura = parseFloat(mensaje);
+        const temperatura =
+            parseFloat(mensaje);
+
+
+        // Mostrar temperatura
 
         document.getElementById("temperatura").innerHTML =
-            temperatura + " °C";
+            temperatura.toFixed(2) + " °C";
 
 
         const alerta =
             document.getElementById("alertaTemperatura");
 
 
+        //==========================
+        // TEMPERATURA BAJA
+        //==========================
+
         if (temperatura < 50) {
 
             alerta.innerHTML =
                 "🟠 TEMPERATURA BAJA";
 
-            alerta.style.color = "orange";
+            alerta.style.color =
+                "orange";
 
         }
 
+
+        //==========================
+        // TEMPERATURA ALTA
+        //==========================
 
         else if (temperatura > 60) {
 
             alerta.innerHTML =
                 "🔴 TEMPERATURA ALTA";
 
-            alerta.style.color = "red";
+            alerta.style.color =
+                "red";
 
         }
 
+
+        //==========================
+        // TEMPERATURA NORMAL
+        //==========================
 
         else {
 
             alerta.innerHTML =
                 "🟢 TEMPERATURA NORMAL";
 
-            alerta.style.color = "green";
+            alerta.style.color =
+                "green";
 
         }
 
@@ -185,12 +234,28 @@ cliente.on("message", function(topic, message) {
 });
 
 
+//==============================
+// ERROR MQTT
+//==============================
+
 cliente.on("error", function(error) {
 
     document.getElementById("mqttEstado").innerHTML =
         "<span style='color:red;'>ERROR MQTT</span>";
 
     console.log(error);
+
+});
+
+
+//==============================
+// DESCONEXIÓN MQTT
+//==============================
+
+cliente.on("close", function() {
+
+    document.getElementById("mqttEstado").innerHTML =
+        "<span style='color:red;'>DESCONECTADO</span>";
 
 });
 
