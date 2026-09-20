@@ -144,6 +144,85 @@ cliente.on("connect", function() {
 });
 
 
+//==============================<p id="mqttEstado" class="estado">
+CONECTANDO...
+</p>
+
+</div>
+
+
+<!-- ESTADO ESP -->
+
+<div class="caja">
+
+<h2>📨 Estado del ESP</h2>
+
+<p id="estadoESP" class="estado">
+--
+</p>
+
+</div>
+
+
+<!-- TEMPERATURA -->
+
+<div class="caja">
+
+<h2>🌡️ Temperatura</h2>
+
+<p id="temperatura" class="temperatura">
+-- °C
+</p>
+
+<p id="alertaTemperatura" class="alerta">
+Esperando temperatura...
+</p>
+
+</div>
+
+
+<script>
+
+//==============================
+// CONEXIÓN MQTT
+//==============================
+
+const host =
+"wss://b006397215434ca192ccab8d5f534293.s1.eu.hivemq.cloud:8884/mqtt";
+
+const usuario = "caldera2026";
+
+const contraseña = "17681768";
+
+const cliente = mqtt.connect(host, {
+
+    username: usuario,
+
+    password: contraseña,
+
+    clientId:
+        "PaginaCaldera_" +
+        Math.random().toString(16).substr(2, 8)
+
+});
+
+
+//==============================
+// MQTT CONECTADO
+//==============================
+
+cliente.on("connect", function() {
+
+    document.getElementById("mqttEstado").innerHTML =
+        "<span style='color:green;'>CONECTADO</span>";
+
+    cliente.subscribe("caldera/estado");
+
+    cliente.subscribe("caldera/temperatura");
+
+});
+
+
 //==============================
 // MENSAJES MQTT
 //==============================
