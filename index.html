@@ -1,15 +1,6 @@
-<!DOCTYPE html>
-<html lang="es">
-
-<head>
+<!DOCTYPE html><html lang="es"><head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<title>Caldera ESP Pro</title>
-
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-
-<style>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Caldera ESP Pro</title><script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script><style>
 
 body {
     font-family: Arial;
@@ -48,140 +39,30 @@ h1 {
     margin: 15px;
 }
 
-</style>
-
-</head>
-
-<body>
-
-<h1>🔥 CALDERA ESP PRO</h1>
-
-<h2>Panel de monitoreo</h2>
-
-
-<!-- MQTT -->
-
-<div class="caja">
-
-<h2>📡 MQTT</h2>
-
-<p id="mqttEstado" class="estado">
+</style></head><body><h1>🔥 CALDERA ESP PRO</h1><h2>Panel de monitoreo</h2><!-- MQTT --><div class="caja"><h2>📡 MQTT</h2><p id="mqttEstado" class="estado">
 CONECTANDO...
-</p>
-
-</div>
-
-
-<!-- ESTADO ESP -->
-
-<div class="caja">
-
-<h2>📨 Estado del ESP</h2>
-
-<p id="estadoESP" class="estado">
+</p></div><!-- ESTADO ESP --><div class="caja"><h2>📨 Estado del ESP</h2><p id="estadoESP" class="estado">
 --
-</p>
-
-</div>
-
-
-<!-- TEMPERATURA -->
-
-<div class="caja">
-
-<h2>🌡️ Temperatura</h2>
-
-<p id="temperatura" class="temperatura">
+</p></div><!-- TEMPERATURA --><div class="caja"><h2>🌡️ Temperatura</h2><p id="temperatura" class="temperatura">
 -- °C
-</p>
-
-<p id="alertaTemperatura" class="alerta">
+</p><p id="alertaTemperatura" class="alerta">
 Esperando temperatura...
-</p>
-
-</div>
-
-
-<script>
+</p></div><script>
 
 //==============================
-// CONEXIÓN MQTT
+// VARIABLES
 //==============================
 
-const host =
-"wss://b006397215434ca192ccab8d5f534293.s1.eu.hivemq.cloud:8884/mqtt";
+// Tiempo máximo sin recibir estado del ESP
+// antes de considerarlo OFFLINE.
 
-const usuario = "caldera2026";
+const TIEMPO_OFFLINE = 30000;
 
-const contraseña = "17681768";
+// Guarda el momento del último mensaje recibido
+// desde caldera/estado.
 
-const cliente = mqtt.connect(host, {
+let ultimoEstadoESP = 0;
 
-    username: usuario,
-
-    password: contraseña,
-
-    clientId:
-        "PaginaCaldera_" +
-        Math.random().toString(16).substr(2, 8)
-
-});
-
-
-//==============================
-// MQTT CONECTADO
-//==============================
-
-cliente.on("connect", function() {
-
-    document.getElementById("mqttEstado").innerHTML =
-        "<span style='color:green;'>CONECTADO</span>";
-
-    cliente.subscribe("caldera/estado");
-
-    cliente.subscribe("caldera/temperatura");
-
-});
-
-
-//==============================<p id="mqttEstado" class="estado">
-CONECTANDO...
-</p>
-
-</div>
-
-
-<!-- ESTADO ESP -->
-
-<div class="caja">
-
-<h2>📨 Estado del ESP</h2>
-
-<p id="estadoESP" class="estado">
---
-</p>
-
-</div>
-
-
-<!-- TEMPERATURA -->
-
-<div class="caja">
-
-<h2>🌡️ Temperatura</h2>
-
-<p id="temperatura" class="temperatura">
--- °C
-</p>
-
-<p id="alertaTemperatura" class="alerta">
-Esperando temperatura...
-</p>
-
-</div>
-
-
-<script>
 
 //==============================
 // CONEXIÓN MQTT
@@ -238,8 +119,18 @@ cliente.on("message", function(topic, message) {
 
     if (topic === "caldera/estado") {
 
+        // Guardamos el momento en que
+        // recibimos el estado del ESP.
+
+        ultimoEstadoESP = Date.now();
+
+
+        // Mostramos el mensaje recibido.
+
         document.getElementById("estadoESP").innerHTML =
-            mensaje;
+            "<span style='color:green;'>" +
+            mensaje +
+            "</span>";
 
     }
 
@@ -254,63 +145,120 @@ cliente.on("message", function(topic, message) {
             parseFloat(mensaje);
 
 
-        // Mostrar temperatura
+        // Si el ESP está online,
+        // mostramos la temperatura.
 
-        document.getElementById("temperatura").innerHTML =
-            temperatura.toFixed(2) + " °C";
+        if (ultimoEstadoESP !== 0) {
 
-
-        const alerta =
-            document.getElementById("alertaTemperatura");
-
-
-        //==========================
-        // TEMPERATURA BAJA
-        //==========================
-
-        if (temperatura < 50) {
-
-            alerta.innerHTML =
-                "🟠 TEMPERATURA BAJA";
-
-            alerta.style.color =
-                "orange";
-
-        }
+            document.getElementById("temperatura").innerHTML =
+                temperatura.toFixed(2) + " °C";
 
 
-        //==========================
-        // TEMPERATURA ALTA
-        //==========================
-
-        else if (temperatura > 60) {
-
-            alerta.innerHTML =
-                "🔴 TEMPERATURA ALTA";
-
-            alerta.style.color =
-                "red";
-
-        }
+            const alerta =
+                document.getElementById("alertaTemperatura");
 
 
-        //==========================
-        // TEMPERATURA NORMAL
-        //==========================
+            //==========================
+            // TEMPERATURA BAJA
+            // MENOS DE 55 °C
+            //==========================
 
-        else {
+            if (temperatura < 55) {
 
-            alerta.innerHTML =
-                "🟢 TEMPERATURA NORMAL";
+                alerta.innerHTML =
+                    "🟠 TEMPERATURA BAJA";
 
-            alerta.style.color =
-                "green";
+                alerta.style.color =
+                    "orange";
+
+            }
+
+
+            //==========================
+            // TEMPERATURA NORMAL
+            // 55 °C A 70 °C
+            //==========================
+
+            else if (temperatura <= 70) {
+
+                alerta.innerHTML =
+                    "🟢 TEMPERATURA NORMAL";
+
+                alerta.style.color =
+                    "green";
+
+            }
+
+
+            //==========================
+            // TEMPERATURA ALTA
+            // MÁS DE 70 °C
+            //==========================
+
+            else {
+
+                alerta.innerHTML =
+                    "🔴 TEMPERATURA ALTA";
+
+                alerta.style.color =
+                    "red";
+
+            }
 
         }
 
     }
 
 });
+
+
+//==============================
+// COMPROBAR SI EL ESP ESTÁ OFFLINE
+//==============================
+
+setInterval(function() {
+
+    // Si nunca recibimos estado,
+    // no hacemos nada todavía.
+
+    if (ultimoEstadoESP === 0) {
+        return;
+    }
+
+
+    // Calculamos cuánto tiempo pasó
+    // desde el último mensaje del ESP.
+
+    const tiempoTranscurrido =
+        Date.now() - ultimoEstadoESP;
+
+
+    // Si pasaron más de 30 segundos,
+    // consideramos que el ESP está offline.
+
+    if (tiempoTranscurrido > TIEMPO_OFFLINE) {
+
+        document.getElementById("estadoESP").innerHTML =
+            "<span style='color:red;'>OFFLINE</span>";
+
+
+        // No mostramos como actual
+        // la última temperatura recibida.
+
+        document.getElementById("temperatura").innerHTML =
+            "-- °C";
+
+
+        document.getElementById("alertaTemperatura").innerHTML =
+            "Esperando conexión con el ESP";
+
+
+        document.getElementById("alertaTemperatura").style.color =
+            "red";
+
+    }
+
+}, 5000);
 
 
 //==============================
@@ -338,8 +286,4 @@ cliente.on("close", function() {
 
 });
 
-</script>
-
-</body>
-
-</html>
+</script></body></html>
