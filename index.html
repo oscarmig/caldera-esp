@@ -46,27 +46,28 @@ CONECTANDO...
 </p></div><!-- TEMPERATURA --><div class="caja"><h2>🌡️ Temperatura</h2><p id="temperatura" class="temperatura">
 -- °C
 </p><p id="alertaTemperatura" class="alerta">
-Esperando temperatura...
+Esperando conexión con el ESP
 </p></div><script>
 
-//==============================
-// VARIABLES
-//==============================
+//======================================
+// CONFIGURACIÓN
+//======================================
 
-// Tiempo máximo sin recibir estado del ESP
-// antes de considerarlo OFFLINE.
+// Tiempo sin recibir una temperatura NUEVA
+// antes de considerar el ESP offline.
 
 const TIEMPO_OFFLINE = 30000;
 
-// Guarda el momento del último mensaje recibido
-// desde caldera/estado.
 
-let ultimoEstadoESP = 0;
+// Momento de la última temperatura REAL
+// recibida desde el ESP.
+
+let ultimaTemperaturaReal = 0;
 
 
-//==============================
+//======================================
 // CONEXIÓN MQTT
-//==============================
+//======================================
 
 const host =
 "wss://b006397215434ca192ccab8d5f534293.s1.eu.hivemq.cloud:8884/mqtt";
@@ -88,9 +89,9 @@ const cliente = mqtt.connect(host, {
 });
 
 
-//==============================
+//======================================
 // MQTT CONECTADO
-//==============================
+//======================================
 
 cliente.on("connect", function() {
 
@@ -104,40 +105,52 @@ cliente.on("connect", function() {
 });
 
 
-//==============================
+//======================================
 // MENSAJES MQTT
-//==============================
+//======================================
 
-cliente.on("message", function(topic, message) {
+cliente.on("message", function(topic, message, packet) {
 
     const mensaje = message.toString();
 
 
-    //==========================
+    //==================================
     // ESTADO DEL ESP
-    //==========================
+    //==================================
 
     if (topic === "caldera/estado") {
 
-        // Guardamos el momento en que
-        // recibimos el estado del ESP.
+        // IMPORTANTE:
+        //
+        // NO usamos este mensaje para decidir
+        // si el ESP está online.
+        //
+        // Puede ser un mensaje RETENIDO por HiveMQ.
+        //
+        // Por eso solamente lo mostramos si
+        // el ESP ya fue comprobado mediante
+        // una temperatura real.
 
-        ultimoEstadoESP = Date.now();
+        if (ultimaTemperaturaReal > 0) {
 
+            const tiempo =
+                Date.now() - ultimaTemperaturaReal;
 
-        // Mostramos el mensaje recibido.
+            if (tiempo <= TIEMPO_OFFLINE) {
 
-        document.getElementById("estadoESP").innerHTML =
-            "<span style='color:green;'>" +
-            mensaje +
-            "</span>";
+                document.getElementById("estadoESP").innerHTML =
+                    "<span style='color:green;'>ONLINE</span>";
+
+            }
+
+        }
 
     }
 
 
-    //==========================
+    //==================================
     // TEMPERATURA
-    //==========================
+    //==================================
 
     if (topic === "caldera/temperatura") {
 
@@ -145,65 +158,109 @@ cliente.on("message", function(topic, message) {
             parseFloat(mensaje);
 
 
-        // Si el ESP está online,
-        // mostramos la temperatura.
+        // Comprobamos que sea un número válido.
 
-        if (ultimoEstadoESP !== 0) {
+        if (isNaN(temperatura)) {
+            return;
+        }
+
+
+        //==================================
+        // MENSAJE RETENIDO
+        //==================================
+        //
+        // Si HiveMQ nos entrega una temperatura
+        // guardada anteriormente, NO la usamos
+        // para declarar ONLINE al ESP.
+        //
+        // Solamente la mostramos como última
+        // temperatura conocida.
+
+        if (packet && packet.retain) {
 
             document.getElementById("temperatura").innerHTML =
                 temperatura.toFixed(2) + " °C";
 
+            document.getElementById("estadoESP").innerHTML =
+                "<span style='color:red;'>OFFLINE</span>";
 
-            const alerta =
-                document.getElementById("alertaTemperatura");
+            document.getElementById("alertaTemperatura").innerHTML =
+                "Esperando conexión con el ESP";
 
+            document.getElementById("alertaTemperatura").style.color =
+                "red";
 
-            //==========================
-            // TEMPERATURA BAJA
-            // MENOS DE 55 °C
-            //==========================
-
-            if (temperatura < 55) {
-
-                alerta.innerHTML =
-                    "🟠 TEMPERATURA BAJA";
-
-                alerta.style.color =
-                    "orange";
-
-            }
+            return;
+        }
 
 
-            //==========================
-            // TEMPERATURA NORMAL
-            // 55 °C A 70 °C
-            //==========================
+        //==================================
+        // TEMPERATURA REAL NUEVA
+        //==================================
 
-            else if (temperatura <= 70) {
+        // Esta temperatura NO es retenida.
+        // Por lo tanto acaba de llegar del ESP.
 
-                alerta.innerHTML =
-                    "🟢 TEMPERATURA NORMAL";
-
-                alerta.style.color =
-                    "green";
-
-            }
+        ultimaTemperaturaReal = Date.now();
 
 
-            //==========================
-            // TEMPERATURA ALTA
-            // MÁS DE 70 °C
-            //==========================
+        // ESP ONLINE
 
-            else {
+        document.getElementById("estadoESP").innerHTML =
+            "<span style='color:green;'>ONLINE</span>";
 
-                alerta.innerHTML =
-                    "🔴 TEMPERATURA ALTA";
 
-                alerta.style.color =
-                    "red";
+        // Mostrar temperatura
 
-            }
+        document.getElementById("temperatura").innerHTML =
+            temperatura.toFixed(2) + " °C";
+
+
+        const alerta =
+            document.getElementById("alertaTemperatura");
+
+
+        //==================================
+        // MENOS DE 55 °C
+        //==================================
+
+        if (temperatura < 55) {
+
+            alerta.innerHTML =
+                "🟠 TEMPERATURA BAJA";
+
+            alerta.style.color =
+                "orange";
+
+        }
+
+
+        //==================================
+        // ENTRE 55 Y 70 °C
+        //==================================
+
+        else if (temperatura <= 70) {
+
+            alerta.innerHTML =
+                "🟢 TEMPERATURA NORMAL";
+
+            alerta.style.color =
+                "green";
+
+        }
+
+
+        //==================================
+        // MÁS DE 70 °C
+        //==================================
+
+        else {
+
+            alerta.innerHTML =
+                "🔴 TEMPERATURA ALTA";
+
+            alerta.style.color =
+                "red";
 
         }
 
@@ -212,38 +269,32 @@ cliente.on("message", function(topic, message) {
 });
 
 
-//==============================
-// COMPROBAR SI EL ESP ESTÁ OFFLINE
-//==============================
+//======================================
+// COMPROBAR SI EL ESP SIGUE ONLINE
+//======================================
 
 setInterval(function() {
 
-    // Si nunca recibimos estado,
-    // no hacemos nada todavía.
+    // Todavía nunca recibimos una temperatura
+    // REAL.
 
-    if (ultimoEstadoESP === 0) {
+    if (ultimaTemperaturaReal === 0) {
         return;
     }
 
 
-    // Calculamos cuánto tiempo pasó
-    // desde el último mensaje del ESP.
-
     const tiempoTranscurrido =
-        Date.now() - ultimoEstadoESP;
+        Date.now() - ultimaTemperaturaReal;
 
 
-    // Si pasaron más de 30 segundos,
-    // consideramos que el ESP está offline.
+    // Si hace más de 30 segundos que no
+    // llega una temperatura REAL:
 
     if (tiempoTranscurrido > TIEMPO_OFFLINE) {
 
         document.getElementById("estadoESP").innerHTML =
             "<span style='color:red;'>OFFLINE</span>";
 
-
-        // No mostramos como actual
-        // la última temperatura recibida.
 
         document.getElementById("temperatura").innerHTML =
             "-- °C";
@@ -261,9 +312,9 @@ setInterval(function() {
 }, 5000);
 
 
-//==============================
+//======================================
 // ERROR MQTT
-//==============================
+//======================================
 
 cliente.on("error", function(error) {
 
@@ -275,9 +326,9 @@ cliente.on("error", function(error) {
 });
 
 
-//==============================
+//======================================
 // DESCONEXIÓN MQTT
-//==============================
+//======================================
 
 cliente.on("close", function() {
 
