@@ -424,27 +424,31 @@
       "#996600";
 
     clienteMQTT = mqtt.connect(
-      HOST_MQTT,
-      {
-        clientId:
-          "PaginaCaldera_" +
-          Math.random()
-            .toString(16)
-            .substring(2),
+  HOST_MQTT,
+  {
+    clientId:
+      "PaginaCaldera_" +
+      Math.random()
+        .toString(16)
+        .substring(2),
 
-        username: "webclient",
+    username: "webclient",
 
-        password: "webclient",
+    password: "webclient",
 
-        clean: true,
+    clean: true,
 
-        reconnectPeriod: 5000,
+    reconnectPeriod: 5000,
 
-        connectTimeout: 10000,
+    connectTimeout: 10000,
 
-        protocolVersion: 4
-      }
-    );
+    protocolVersion: 4,
+
+    createWebsocket: function(url) {
+      return new WebSocket(url);
+    }
+  }
+);
 
 
     // --------------------------------------------------------
