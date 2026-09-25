@@ -445,7 +445,14 @@
     protocolVersion: 4,
 
     createWebsocket: function(url) {
-      return new WebSocket(url);
+
+      const ws =
+        new WebSocket(url);
+
+      ws.binaryType =
+        "arraybuffer";
+
+      return ws;
     }
   }
 );
