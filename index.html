@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -8,7 +9,7 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>Caldera ESP</title>
+  <title>Caldera ESP iV2.9</title>
 
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
@@ -344,6 +345,17 @@
 <script>
 
   // ==========================================================
+  // CALDERA ESP PRO - PÁGINA iV2.9
+  //
+  // ESP: V2.8
+  //
+  // CAMBIO iV2.9:
+  // Se elimina createWebsocket personalizado.
+  // mqtt.js crea y negocia el WebSocket normalmente.
+  // ==========================================================
+
+
+  // ==========================================================
   // CONFIGURACIÓN
   // ==========================================================
 
@@ -417,50 +429,84 @@
 
   function conectarMQTT() {
 
+    console.log(
+      "Iniciando conexión MQTT iV2.9..."
+    );
+
     elementoEstadoMQTT.textContent =
       "Conectando...";
 
     elementoEstadoMQTT.style.color =
       "#996600";
 
-    clienteMQTT = mqtt.connect(
-  HOST_MQTT,
-  {
-    clientId:
-      "PaginaCaldera_" +
-      Math.random()
-        .toString(16)
-        .substring(2),
 
-    username: "webclient",
+    // --------------------------------------------------------
+    // Cerrar cliente anterior si existiera
+    // --------------------------------------------------------
 
-    password: "webclient",
+    if (clienteMQTT) {
 
-    clean: true,
+      try {
 
-    reconnectPeriod: 5000,
+        clienteMQTT.end(
+          true
+        );
 
-    connectTimeout: 10000,
+      } catch (error) {
 
-    protocolVersion: 4,
+        console.log(
+          "Error cerrando MQTT anterior:",
+          error
+        );
 
-    createWebsocket: function(url) {
+      }
 
-      const ws =
-        new WebSocket(url);
-
-      ws.binaryType =
-        "arraybuffer";
-
-      return ws;
     }
-  }
-);
 
 
     // --------------------------------------------------------
+    // Crear conexión MQTT
+    //
+    // IMPORTANTE:
+    // No usamos createWebsocket personalizado.
+    // mqtt.js se encarga del WebSocket.
+    // --------------------------------------------------------
+
+    clienteMQTT = mqtt.connect(
+      HOST_MQTT,
+      {
+
+        clientId:
+          "PaginaCaldera_" +
+          Math.random()
+            .toString(16)
+            .substring(2),
+
+        username:
+          "webclient",
+
+        password:
+          "webclient",
+
+        clean:
+          true,
+
+        reconnectPeriod:
+          5000,
+
+        connectTimeout:
+          10000,
+
+        protocolVersion:
+          4
+
+      }
+    );
+
+
+    // ========================================================
     // CONECTADO
-    // --------------------------------------------------------
+    // ========================================================
 
     clienteMQTT.on(
       "connect",
@@ -477,29 +523,96 @@
           "#168238";
 
 
-        clienteMQTT.subscribe(
-          "caldera/estado"
-        );
+        // ----------------------------------------------------
+        // Suscripción estado ESP
+        // ----------------------------------------------------
 
         clienteMQTT.subscribe(
-          "caldera/temperatura"
+          "caldera/estado",
+          function(error) {
+
+            if (error) {
+
+              console.log(
+                "Error suscribiendo caldera/estado:",
+                error
+              );
+
+            }
+
+          }
         );
 
-        clienteMQTT.subscribe(
-          "caldera/config/minima"
-        );
+
+        // ----------------------------------------------------
+        // Suscripción temperatura
+        // ----------------------------------------------------
 
         clienteMQTT.subscribe(
-          "caldera/config/maxima"
+          "caldera/temperatura",
+          function(error) {
+
+            if (error) {
+
+              console.log(
+                "Error suscribiendo caldera/temperatura:",
+                error
+              );
+
+            }
+
+          }
+        );
+
+
+        // ----------------------------------------------------
+        // Suscripción límite mínimo
+        // ----------------------------------------------------
+
+        clienteMQTT.subscribe(
+          "caldera/config/minima",
+          function(error) {
+
+            if (error) {
+
+              console.log(
+                "Error suscribiendo mínima:",
+                error
+              );
+
+            }
+
+          }
+        );
+
+
+        // ----------------------------------------------------
+        // Suscripción límite máximo
+        // ----------------------------------------------------
+
+        clienteMQTT.subscribe(
+          "caldera/config/maxima",
+          function(error) {
+
+            if (error) {
+
+              console.log(
+                "Error suscribiendo máxima:",
+                error
+              );
+
+            }
+
+          }
         );
 
       }
     );
 
 
-    // --------------------------------------------------------
+    // ========================================================
     // ERROR
-    // --------------------------------------------------------
+    // ========================================================
 
     clienteMQTT.on(
       "error",
@@ -520,13 +633,17 @@
     );
 
 
-    // --------------------------------------------------------
+    // ========================================================
     // DESCONECTADO
-    // --------------------------------------------------------
+    // ========================================================
 
     clienteMQTT.on(
       "close",
       function() {
+
+        console.log(
+          "MQTT desconectado"
+        );
 
         elementoEstadoMQTT.textContent =
           "DESCONECTADO";
@@ -538,9 +655,31 @@
     );
 
 
-    // --------------------------------------------------------
+    // ========================================================
+    // OFFLINE
+    // ========================================================
+
+    clienteMQTT.on(
+      "offline",
+      function() {
+
+        console.log(
+          "MQTT offline"
+        );
+
+        elementoEstadoMQTT.textContent =
+          "OFFLINE";
+
+        elementoEstadoMQTT.style.color =
+          "#b00000";
+
+      }
+    );
+
+
+    // ========================================================
     // MENSAJES
-    // --------------------------------------------------------
+    // ========================================================
 
     clienteMQTT.on(
       "message",
@@ -548,6 +687,14 @@
 
         const valor =
           message.toString().trim();
+
+
+        console.log(
+          "MQTT:",
+          topic,
+          "=",
+          valor
+        );
 
 
         // ====================================================
@@ -589,8 +736,15 @@
           if (
             isNaN(temperatura)
           ) {
+
+            console.log(
+              "Temperatura inválida:",
+              valor
+            );
+
             return;
           }
+
 
           ultimaTemperaturaReal =
             temperatura;
@@ -598,11 +752,14 @@
           ultimaLectura =
             Date.now();
 
-          espOnline = true;
+          espOnline =
+            true;
+
 
           elementoTemperatura.textContent =
             temperatura.toFixed(2) +
             " °C";
+
 
           actualizarEstadoESP();
 
@@ -638,6 +795,7 @@
               valorMinimo;
 
             actualizarAlerta();
+
           }
 
           return;
@@ -670,6 +828,7 @@
               valorMaximo;
 
             actualizarAlerta();
+
           }
 
           return;
@@ -796,6 +955,7 @@
 
     elementoAlerta.className =
       "estado alta";
+
   }
 
 
@@ -830,7 +990,9 @@
     if (
       password === null
     ) {
+
       return;
+
     }
 
 
@@ -843,6 +1005,7 @@
       );
 
       return;
+
     }
 
 
@@ -853,18 +1016,23 @@
           URL_WORKER +
           "/config-auth",
           {
-            method: "POST",
+            method:
+              "POST",
 
             headers: {
               "Content-Type":
                 "application/json"
             },
 
-            credentials: "include",
+            credentials:
+              "include",
 
-            body: JSON.stringify({
-              password: password
-            })
+            body:
+              JSON.stringify({
+                password:
+                  password
+              })
+
           }
         );
 
@@ -884,6 +1052,7 @@
         );
 
         return;
+
       }
 
 
@@ -896,6 +1065,7 @@
           ? temperaturaMinima
           : 55;
 
+
       nuevaMaxima.value =
         temperaturaMaxima !== null
           ? temperaturaMaxima
@@ -906,13 +1076,13 @@
         "none";
 
 
-      // IMPORTANTE:
-      // La autorización de configuración del Worker se fija
-      // cuando se abre el WebSocket MQTT. Después de validar
-      // la contraseña se crea una nueva cookie, por lo que
-      // debemos cerrar la conexión anterior y abrir otra.
-      // Así el Worker vuelve a leer la cookie y autoriza los
-      // mensajes caldera/config/minima y caldera/config/maxima.
+      // ------------------------------------------------------
+      // La autorización de configuración se fija al abrir
+      // el WebSocket MQTT.
+      //
+      // Después de validar la contraseña se crea una nueva
+      // cookie, por lo que debemos reconectar MQTT.
+      // ------------------------------------------------------
 
       if (
         clienteMQTT &&
@@ -939,9 +1109,12 @@
 
       conectarMQTT();
 
+
     } catch (error) {
 
-      console.log(error);
+      console.log(
+        error
+      );
 
       alert(
         "No se pudo verificar la contraseña."
@@ -963,6 +1136,7 @@
         nuevaMinima.value
       );
 
+
     const maximo =
       parseFloat(
         nuevaMaxima.value
@@ -980,6 +1154,7 @@
       );
 
       return;
+
     }
 
 
@@ -993,6 +1168,7 @@
       );
 
       return;
+
     }
 
 
@@ -1007,6 +1183,7 @@
       );
 
       return;
+
     }
 
 
@@ -1021,6 +1198,7 @@
       );
 
       return;
+
     }
 
 
@@ -1035,6 +1213,7 @@
       );
 
       return;
+
     }
 
 
@@ -1047,11 +1226,11 @@
     try {
 
       /*
-       * El ESP V2.8 exige que los valores sean
-       * válidos respecto del otro límite.
+       * El ESP V2.8 exige que los valores sean válidos
+       * respecto del otro límite.
        *
-       * Por eso elegimos automáticamente el orden
-       * más seguro para publicar los dos valores.
+       * Si el nuevo mínimo supera el máximo actual,
+       * primero se publica el nuevo máximo.
        */
 
       if (
@@ -1059,51 +1238,70 @@
         minimo >= temperaturaMaxima
       ) {
 
-        // Primero subimos el máximo.
         clienteMQTT.publish(
           "caldera/config/maxima",
           maximo.toString(),
           {
-            retain: true
+            retain:
+              true
           }
         );
+
 
         setTimeout(
           function() {
 
-            clienteMQTT.publish(
-              "caldera/config/minima",
-              minimo.toString(),
-              {
-                retain: true
-              }
-            );
+            if (
+              clienteMQTT &&
+              clienteMQTT.connected
+            ) {
+
+              clienteMQTT.publish(
+                "caldera/config/minima",
+                minimo.toString(),
+                {
+                  retain:
+                    true
+                }
+              );
+
+            }
 
           },
           500
         );
 
+
       } else {
 
-        // Primero ponemos la mínima.
         clienteMQTT.publish(
           "caldera/config/minima",
           minimo.toString(),
           {
-            retain: true
+            retain:
+              true
           }
         );
+
 
         setTimeout(
           function() {
 
-            clienteMQTT.publish(
-              "caldera/config/maxima",
-              maximo.toString(),
-              {
-                retain: true
-              }
-            );
+            if (
+              clienteMQTT &&
+              clienteMQTT.connected
+            ) {
+
+              clienteMQTT.publish(
+                "caldera/config/maxima",
+                maximo.toString(),
+                {
+                  retain:
+                    true
+                }
+              );
+
+            }
 
           },
           500
@@ -1120,7 +1318,9 @@
 
     } catch (error) {
 
-      console.log(error);
+      console.log(
+        error
+      );
 
       mostrarMensaje(
         "Error al enviar la configuración.",
@@ -1144,10 +1344,14 @@
     mensajeConfiguracion.textContent =
       texto;
 
+
     mensajeConfiguracion.style.display =
       "block";
 
-    if (correcto) {
+
+    if (
+      correcto
+    ) {
 
       mensajeConfiguracion.style.background =
         "#d9f7df";
@@ -1177,19 +1381,23 @@
     panelConfiguracion.style.display =
       "none";
 
+
     try {
 
       await fetch(
         URL_WORKER +
         "/config-logout",
         {
-          credentials: "include"
+          credentials:
+            "include"
         }
       );
 
     } catch (error) {
 
-      console.log(error);
+      console.log(
+        error
+      );
 
     }
 
@@ -1206,3 +1414,4 @@
 
 </body>
 </html>
+```
