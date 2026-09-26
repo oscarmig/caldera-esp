@@ -905,6 +905,40 @@
       mensajeConfiguracion.style.display =
         "none";
 
+
+      // IMPORTANTE:
+      // La autorización de configuración del Worker se fija
+      // cuando se abre el WebSocket MQTT. Después de validar
+      // la contraseña se crea una nueva cookie, por lo que
+      // debemos cerrar la conexión anterior y abrir otra.
+      // Así el Worker vuelve a leer la cookie y autoriza los
+      // mensajes caldera/config/minima y caldera/config/maxima.
+
+      if (
+        clienteMQTT &&
+        clienteMQTT.connected
+      ) {
+
+        await new Promise(
+          function(resolve) {
+
+            clienteMQTT.end(
+              true,
+              function() {
+
+                resolve();
+
+              }
+            );
+
+          }
+        );
+
+      }
+
+
+      conectarMQTT();
+
     } catch (error) {
 
       console.log(error);
