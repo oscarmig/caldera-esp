@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -9,7 +8,7 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>Caldera ESP</title>
+  <title>Caldera ESP iV3.0</title>
 
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
@@ -32,9 +31,36 @@
       margin: auto;
     }
 
-    h1 {
-      text-align: center;
-      margin-bottom: 20px;
+    /* iV3.0: se elimina el encabezado grande para ganar espacio en el celular. */
+    .comunicacion-layout {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .datos-comunicacion {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .fuego-quemador {
+      display: none;
+      flex: 0 0 auto;
+      font-size: 44px;
+      line-height: 1;
+      padding: 4px;
+    }
+
+    .fuego-quemador.visible {
+      display: block;
+    }
+
+    @media (max-width: 380px) {
+      body { padding: 10px; }
+      .tarjeta { padding: 16px; }
+      .temperatura { font-size: 42px; }
+      .fuego-quemador { font-size: 36px; }
     }
 
     .tarjeta {
@@ -164,8 +190,6 @@
 
 <div class="contenedor">
 
-  <h1>🔥 Caldera ESP</h1>
-
   <!-- ======================================================
        ESTADO MQTT
        ====================================================== -->
@@ -176,18 +200,25 @@
       📡 Comunicación
     </div>
 
-    <div class="dato">
-      MQTT:
-      <strong id="estadoMQTT">
-        Conectando...
-      </strong>
-    </div>
+    <div class="comunicacion-layout">
+      <div class="datos-comunicacion">
+        <div class="dato">
+          MQTT:
+          <strong id="estadoMQTT">
+            Conectando...
+          </strong>
+        </div>
 
-    <div class="dato">
-      ESP:
-      <strong id="estadoESP">
-        Desconectado
-      </strong>
+        <div class="dato">
+          ESP:
+          <strong id="estadoESP">
+            Desconectado
+          </strong>
+        </div>
+      </div>
+
+      <!-- Solo se muestra cuando la segunda ESP envía su señal -->
+      <div id="fuegoQuemador" class="fuego-quemador" role="img" aria-label="Segunda ESP conectada" title="Segunda ESP conectada">🔥</div>
     </div>
 
   </div>
@@ -373,6 +404,9 @@
 
   let temperaturaMaxima = null;
 
+  // Última señal recibida de la ESP que indica alimentación de la electroválvula.
+  let ultimaSenalQuemador = 0;
+
 
   // ==========================================================
   // ELEMENTOS
@@ -386,6 +420,9 @@
 
   const elementoEstadoMQTT =
     document.getElementById("estadoMQTT");
+
+  const elementoFuegoQuemador =
+    document.getElementById("fuegoQuemador");
 
   const elementoEstadoTemperatura =
     document.getElementById("estadoTemperatura");
@@ -425,27 +462,30 @@
       "#996600";
 
     clienteMQTT = mqtt.connect(
-      HOST_MQTT,
-      {
-        clientId:
-          "PaginaCaldera_" +
-          Math.random()
-            .toString(16)
-            .substring(2),
+  HOST_MQTT,
+  {
+    clientId:
+      "PaginaCaldera_" +
+      Math.random()
+        .toString(16)
+        .substring(2),
 
-        username: "webclient",
+    username: "webclient",
 
-        password: "webclient",
+    password: "webclient",
 
-        clean: true,
+    clean: true,
 
-        reconnectPeriod: 5000,
+    reconnectPeriod: 5000,
 
-        connectTimeout: 10000,
+    connectTimeout: 10000,
 
-        protocolVersion: 4
-      }
-    );
+    // Mantener el WebSocket estándar de MQTT.js.
+    // El Worker /mqtt negocia el subprotocolo MQTT; no crear
+    // un WebSocket manual porque puede provocar errores de conexión.
+    protocolVersion: 4
+  }
+);
 
 
     // --------------------------------------------------------
@@ -481,6 +521,10 @@
 
         clienteMQTT.subscribe(
           "caldera/config/maxima"
+        );
+
+        clienteMQTT.subscribe(
+          "caldera/quemador/estado"
         );
 
       }
@@ -539,6 +583,19 @@
         const valor =
           message.toString().trim();
 
+        // La segunda ESP publica ONLINE cada pocos segundos.
+        // Si no llega señal durante 30 segundos, se oculta el fuego.
+        if (topic === "caldera/quemador/estado") {
+          const estadoQuemador = valor.toUpperCase();
+          if (estadoQuemador === "ONLINE") {
+            ultimaSenalQuemador = Date.now();
+            elementoFuegoQuemador.classList.add("visible");
+          } else if (estadoQuemador === "OFFLINE") {
+            ultimaSenalQuemador = 0;
+            elementoFuegoQuemador.classList.remove("visible");
+          }
+          return;
+        }
 
         // ====================================================
         // ESTADO ESP
@@ -800,6 +857,13 @@
 
       actualizarAlerta();
 
+      if (
+        !ultimaSenalQuemador ||
+        Date.now() - ultimaSenalQuemador > TIEMPO_OFFLINE
+      ) {
+        elementoFuegoQuemador.classList.remove("visible");
+      }
+
     },
     5000
   );
@@ -894,6 +958,40 @@
 
       mensajeConfiguracion.style.display =
         "none";
+
+
+      // IMPORTANTE:
+      // La autorización de configuración del Worker se fija
+      // cuando se abre el WebSocket MQTT. Después de validar
+      // la contraseña se crea una nueva cookie, por lo que
+      // debemos cerrar la conexión anterior y abrir otra.
+      // Así el Worker vuelve a leer la cookie y autoriza los
+      // mensajes caldera/config/minima y caldera/config/maxima.
+
+      if (
+        clienteMQTT &&
+        clienteMQTT.connected
+      ) {
+
+        await new Promise(
+          function(resolve) {
+
+            clienteMQTT.end(
+              true,
+              function() {
+
+                resolve();
+
+              }
+            );
+
+          }
+        );
+
+      }
+
+
+      conectarMQTT();
 
     } catch (error) {
 
